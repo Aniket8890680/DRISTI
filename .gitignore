@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project-generated simulation outputs
+output/
+!output/.gitkeep
+*.gif
+*.png
+*.mp4
+*.avi
+*.pkl
+*.npy

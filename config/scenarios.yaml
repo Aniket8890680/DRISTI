@@ -1,0 +1,74 @@
+# Configuration for Adaptive Path Planning and Collision Avoidance Simulation
+# SIH Prototype on Unstructured Indian Roads
+
+simulation:
+  dt: 0.05
+  default_weather: "normal" # options: normal, rain, fog, night
+  random_seed: 42
+
+vehicle:
+  max_speed: 25.0         # m/s (~90 km/h)
+  max_accel: 3.0          # m/s^2
+  max_decel: 6.0          # m/s^2
+  max_steer_deg: 36.0     # degrees
+  max_steer_rate_deg: 45.0 # deg/s
+  wheelbase: 2.7          # m
+  width: 1.85             # m
+  length: 4.6             # m
+
+sensors:
+  camera:
+    fov_deg: 90.0
+    max_range: 65.0
+    pos_noise_std: 0.25
+  radar:
+    max_range: 90.0
+    fov_deg: 40.0
+    range_noise_std: 0.3
+    velocity_noise_std: 0.2
+  lidar:
+    max_range: 60.0
+    num_rays: 180
+    range_noise_std: 0.05
+  gps_imu:
+    gps_pos_noise_std: 0.25
+    heading_noise_std: 0.02
+    speed_noise_std: 0.1
+
+planner:
+  w_collision: 10000.0
+  w_boundary: 5000.0
+  w_pothole: 300.0
+  w_uncertainty: 150.0
+  w_smoothness: 15.0
+  w_progress: 25.0
+  target_cruise_speed: 12.0
+  min_clearance_hard_limit: 0.2
+
+scenarios:
+  village:
+    name: "Unmarked Village Road"
+    road_width: 5.6
+    bottleneck_width: 4.8
+    target_distance: 90.0
+    max_duration: 20.0
+  intersection:
+    name: "Busy Unsignalized Urban Intersection"
+    road_width: 8.0
+    target_distance: 85.0
+    max_duration: 20.0
+  highway_merge:
+    name: "Highway Merge"
+    road_width: 10.5
+    target_distance: 140.0
+    max_duration: 22.0
+  market:
+    name: "Dense Market Area"
+    road_width: 6.4
+    target_distance: 80.0
+    max_duration: 25.0
+  cattle_crossing:
+    name: "Sudden Cattle Crossing"
+    road_width: 7.5
+    target_distance: 75.0
+    max_duration: 18.0

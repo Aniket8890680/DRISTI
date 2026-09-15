@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Vehicle 3D Real-Time Mission Control | Unstructured Indian Roads</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Three.js 3D WebGL Library & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 select-none overflow-hidden h-screen w-screen flex flex-col font-sans">
+
+  <!-- TOP HEADER / MISSION CONTROL BAR -->
+  <header class="hud-panel z-20 flex items-center justify-between px-4 py-2 border-b border-cyan-500/30 bg-slate-950/85 backdrop-blur-md">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#10b981]"></div>
+        <span class="font-mono text-xs tracking-widest text-emerald-400 font-bold uppercase">LIVE 3D SIM</span>
+      </div>
+      <div class="h-4 w-px bg-slate-700"></div>
+      <h1 class="font-display font-bold text-base tracking-wide bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
+        AUTONOMOUS VEHICLE 3D MISSION CONTROL
+      </h1>
+      <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950/70 text-cyan-300 border border-cyan-500/40 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
+        CONTINUOUS LIVE ENGINE
+      </span>
+    </div>
+
+    <!-- MISSION CONTROLS & CAMERA SELECTORS -->
+    <div class="flex items-center space-x-3">
+      <!-- Camera Perspective Selector -->
+      <div class="flex items-center space-x-1.5">
+        <label class="text-[11px] font-mono text-slate-400">CAMERA:</label>
+        <div class="inline-flex rounded-md p-0.5 bg-slate-900 border border-slate-700">
+          <button id="camChaseBtn" class="pill-btn active" title="3rd Person Behind Car">🎥 Chase 3D</button>
+          <button id="camCockpitBtn" class="pill-btn" title="1st Person Driver Cockpit">🪟 Driver Cockpit</button>
+          <button id="camDroneBtn" class="pill-btn" title="Top-Down Bird's Eye View">🛰️ Drone Top-Down</button>
+          <button id="camOrbitBtn" class="pill-btn" title="Free Orbit 3D">🌐 Free Orbit</button>
+        </div>
+      </div>
+
+      <div class="h-4 w-px bg-slate-700"></div>
+
+      <!-- Driving Mode: Autonomous vs Manual WASD vs Reverse -->
+      <div class="flex items-center space-x-1.5">
+        <label class="text-[11px] font-mono text-slate-400">CONTROL:</label>
+        <div class="inline-flex rounded-md p-0.5 bg-slate-900 border border-slate-700">
+          <button id="modeAutoBtn" class="pill-btn active">🤖 Autonomous AI</button>
+          <button id="modeManualBtn" class="pill-btn">🎮 Manual (WASD)</button>
+          <button id="modeReverseBtn" class="pill-btn hover:text-amber-300" title="Command Reverse Gear / Back Up">⏪ Reverse (Back Up)</button>
+        </div>
+      </div>
+
+      <!-- Weather Selector -->
+      <div class="flex items-center space-x-1.5">
+        <label for="weatherSelect" class="text-[11px] font-mono text-slate-400">ENVIRONMENT:</label>
+        <select id="weatherSelect" class="hud-select">
+          <option value="normal">☀️ Day / Clear</option>
+          <option value="sunset">🌅 Golden Sunset</option>
+          <option value="night">🌙 Night Driving (Headlights)</option>
+          <option value="rain">🌧️ Monsoon Rain (3D Particles)</option>
+          <option value="fog">🌫️ Dense Fog Mist</option>
+        </select>
+      </div>
+
+      <!-- Traffic Density -->
+      <div class="flex items-center space-x-1.5">
+        <label for="trafficDensitySelect" class="text-[11px] font-mono text-slate-400">TRAFFIC:</label>
+        <select id="trafficDensitySelect" class="hud-select">
+          <option value="low">Rural Low Traffic</option>
+          <option value="medium" selected>Moderate Traffic</option>
+          <option value="heavy">Crowded Bazaar</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN 3D VIEWPORT CONTAINER -->
+  <main class="relative flex-1 w-full h-full overflow-hidden">
+    <!-- WebGL 3D Three.js Container -->
+    <div id="threeContainer" class="absolute inset-0 w-full h-full"></div>
+
+    <!-- FLOATING INTERACTIVE HAZARD INJECTOR TOOLBAR (TOP CENTER) -->
+    <div class="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-4 py-1.5 rounded-full border border-cyan-500/40 shadow-[0_0_25px_rgba(0,0,0,0.8)]">
+      <span class="text-[11px] font-mono font-bold text-cyan-300 mr-1">SPAWN HAZARD:</span>
+      
+      <button id="spawnCattleBtn" class="action-pill bg-amber-950/70 text-amber-300 border-amber-500/40 hover:bg-amber-900" title="Spawn stray cow crossing road">
+        🐄 Cattle Crossing
+      </button>
+      <button id="spawnRickshawBtn" class="action-pill bg-yellow-950/70 text-yellow-300 border-yellow-500/40 hover:bg-yellow-900" title="Spawn auto-rickshaw cut-in">
+        🛺 Auto-Rickshaw
+      </button>
+      <button id="spawnBikeBtn" class="action-pill bg-purple-950/70 text-purple-300 border-purple-500/40 hover:bg-purple-900" title="Spawn oncoming motorcycle">
+        🏍️ Oncoming Bike
+      </button>
+      <button id="spawnPotholeBtn" class="action-pill bg-red-950/70 text-red-300 border-red-500/40 hover:bg-red-900" title="Spawn deep pothole on road">
+        🕳️ Pothole
+      </button>
+      <button id="spawnTruckBtn" class="action-pill bg-orange-950/70 text-orange-300 border-orange-500/40 hover:bg-orange-900" title="Spawn heavy commercial lorry">
+        🚛 Freight Truck
+      </button>
+      <button id="spawnCrossroadBtn" class="action-pill bg-emerald-950/70 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900" title="Trigger sudden cross-traffic crossing intersection">
+        🔀 Crossroad Cut-In
+      </button>
+
+      <div class="h-4 w-px bg-slate-700 mx-1"></div>
+
+      <!-- Simulation State Controls -->
+      <button id="pauseSimBtn" class="ctrl-icon-btn text-cyan-400 hover:text-cyan-300" title="Pause / Resume (Space)">
+        <svg id="pauseSimIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        <svg id="playSimIcon" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button id="resetSimBtn" class="ctrl-icon-btn text-slate-400 hover:text-slate-200" title="Reset Vehicle & Trajectory">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+      </button>
+    </div>
+
+    <!-- HUD OVERLAYS: REAL-WORLD METERS & CONTINUOUS CALCULATION (CORNERS & SIDES) -->
+
+    <!-- TOP-LEFT: PROPULSION & SPEEDOMETER GAUGE -->
+    <div class="hud-card absolute top-3 left-3 z-10 w-72 p-3.5 pointer-events-none">
+      <div class="flex items-center justify-between mb-2 border-b border-cyan-500/20 pb-1.5">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+          <span class="hud-title">VEHICLE TELEMETRY</span>
+        </div>
+        <span id="vehicleModeBadge" class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
+          AUTONOMOUS
+        </span>
+      </div>
+
+      <!-- Real Analog/Digital Speedometer Gauge -->
+      <div class="relative flex flex-col items-center justify-center my-1">
+        <svg id="speedGauge" viewBox="0 0 200 120" class="w-44 h-28">
+          <path d="M 25 105 A 75 75 0 0 1 175 105" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round"/>
+          <path id="speedArc" d="M 25 105 A 75 75 0 0 1 175 105" fill="none" stroke="url(#cyanGlowGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="235.6" stroke-dashoffset="235.6"/>
+          <text x="22" y="118" class="gauge-label">0</text>
+          <text x="50" y="45" class="gauge-label">25</text>
+          <text x="100" y="22" class="gauge-label">50</text>
+          <text x="150" y="45" class="gauge-label">75</text>
+          <text x="175" y="118" class="gauge-label">100</text>
+          <line id="speedNeedle" x1="100" y1="105" x2="100" y2="35" stroke="#00f2fe" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="100" cy="105" r="7" fill="#00f2fe" stroke="#020617" stroke-width="2"/>
+          <defs>
+            <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#06b6d4" />
+              <stop offset="70%" stop-color="#10b981" />
+              <stop offset="100%" stop-color="#ef4444" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div class="text-center -mt-6">
+          <div class="font-display font-bold text-3xl tracking-tight text-white flex items-baseline justify-center gap-1">
+            <span id="speedVal">0.0</span>
+            <span class="text-xs font-mono text-cyan-400 font-semibold">KM/H</span>
+          </div>
+          <div class="text-[10px] font-mono text-slate-400">
+            TARGET: <span id="targetSpeedVal" class="text-emerald-400 font-bold">43.2 km/h</span>
+          </div>
+          <!-- Transmission Gear Indicator -->
+          <div class="flex items-center justify-center gap-1.5 mt-1.5 font-mono text-[10px]">
+            <span class="text-slate-500 font-bold">GEAR:</span>
+            <span id="gearP" class="px-1.5 py-0.5 rounded font-bold text-slate-500 bg-slate-900 border border-slate-800">P</span>
+            <span id="gearR" class="px-1.5 py-0.5 rounded font-bold text-slate-500 bg-slate-900 border border-slate-800">R</span>
+            <span id="gearN" class="px-1.5 py-0.5 rounded font-bold text-slate-500 bg-slate-900 border border-slate-800">N</span>
+            <span id="gearD" class="px-1.5 py-0.5 rounded font-bold text-emerald-400 bg-emerald-950 border border-emerald-500/40">D</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Longitudinal G / Accel Bar -->
+      <div class="mt-2 space-y-1">
+        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+          <span>LONGITUDINAL ACCEL</span>
+          <span id="accelVal" class="text-cyan-300 font-bold">+0.00 m/s²</span>
+        </div>
+        <div class="relative h-2.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-700/60">
+          <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-500 z-10"></div>
+          <div id="accelBar" class="h-full transition-all duration-75" style="width: 50%; margin-left: 50%; background: #06b6d4;"></div>
+        </div>
+        <div class="flex justify-between text-[8px] font-mono text-slate-500">
+          <span>BRAKE -6.0</span>
+          <span>COAST 0</span>
+          <span>PWR +3.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM-LEFT: ROTATING STEERING WHEEL & POSE COMPASS -->
+    <div class="hud-card absolute bottom-24 left-3 z-10 w-72 p-3.5 pointer-events-none">
+      <div class="flex items-center justify-between mb-2 border-b border-cyan-500/20 pb-1.5">
+        <span class="hud-title">STEERING & LATERAL POSE</span>
+        <span id="steerDegBadge" class="font-mono text-xs font-bold text-cyan-300">0.0°</span>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Rotating Steering Wheel Graphic -->
+        <div class="relative w-16 h-16 flex items-center justify-center">
+          <svg id="steeringWheelSvg" viewBox="0 0 100 100" class="w-full h-full transition-transform duration-75">
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#334155" stroke-width="8"/>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#00f2fe" stroke-width="2" stroke-dasharray="10 5"/>
+            <rect x="47" y="6" width="6" height="8" rx="2" fill="#ef4444"/>
+            <line x1="10" y1="50" x2="40" y2="50" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+            <line x1="90" y1="50" x2="60" y2="50" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+            <line x1="50" y1="60" x2="50" y2="90" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="50" cy="50" r="14" fill="#0f172a" stroke="#00f2fe" stroke-width="2"/>
+            <circle cx="50" cy="50" r="5" fill="#00f2fe"/>
+          </svg>
+        </div>
+
+        <div class="flex-1 space-y-1 font-mono text-[11px]">
+          <div class="flex justify-between">
+            <span class="text-slate-400">YAW HEADING:</span>
+            <span id="headingVal" class="text-white font-bold">0.0°</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">TRAVEL DISTANCE:</span>
+            <span id="distanceTraveledVal" class="text-emerald-400 font-bold">0.0 m</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">LATERAL OFFSET:</span>
+            <span id="latDevVal" class="text-cyan-400 font-bold">0.00 m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP-RIGHT: 360° SENSOR RADAR & RISK MATRIX -->
+    <div class="hud-card absolute top-3 right-3 z-10 w-80 p-3.5 pointer-events-none">
+      <div class="flex items-center justify-between mb-2 border-b border-cyan-500/20 pb-1.5">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+          <span class="hud-title">360° SENSOR PERCEPTION RADAR</span>
+        </div>
+        <div id="riskLevelBadge" class="status-pill status-pill-low">
+          LOW RISK
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Circular Tactical Radar Sweep Canvas -->
+        <div class="relative w-28 h-28 rounded-full bg-slate-950 border border-cyan-500/40 overflow-hidden shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+          <canvas id="radarCanvas" width="112" height="112" class="w-full h-full"></canvas>
+        </div>
+
+        <div class="flex-1 space-y-2 font-mono">
+          <div>
+            <div class="text-[9px] text-slate-400 uppercase">TIME TO COLLISION (TTC)</div>
+            <div id="ttcVal" class="text-xl font-display font-bold text-emerald-400">CLEAR</div>
+          </div>
+          <div>
+            <div class="text-[9px] text-slate-400 uppercase">MIN OBSTACLE CLEARANCE</div>
+            <div id="clearanceVal" class="text-base font-bold text-cyan-300">-- m</div>
+          </div>
+          <div>
+            <div class="text-[9px] text-slate-400 uppercase">ACTIVE THREAT</div>
+            <div id="closestHazardVal" class="text-[11px] text-slate-200 truncate">Roadway open</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM-RIGHT: FRENET DECISION ENGINE & SENSOR HEALTH -->
+    <div class="hud-card absolute bottom-24 right-3 z-10 w-80 p-3.5 pointer-events-none">
+      <div class="flex items-center justify-between mb-2 border-b border-cyan-500/20 pb-1.5">
+        <span class="hud-title">FRENET LATTICE PLANNER</span>
+        <span id="replanCountVal" class="font-mono text-[10px] text-slate-400">REPLANS: 0</span>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex justify-between items-center text-xs font-mono">
+          <span class="text-slate-400">ACTIVE MANEUVER:</span>
+          <span id="maneuverVal" class="px-2 py-0.5 rounded font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
+            CRUISE
+          </span>
+        </div>
+        <div class="flex justify-between items-center text-xs font-mono">
+          <span class="text-slate-400">PLANNER STATE:</span>
+          <span id="plannerStateVal" class="text-white font-bold">NORMAL_DRIVING</span>
+        </div>
+        <div class="flex justify-between items-center text-xs font-mono">
+          <span class="text-slate-400">CALCULATION LATENCY:</span>
+          <span id="latencyVal" class="text-emerald-400 font-bold">48.2 ms</span>
+        </div>
+
+        <div class="pt-1.5 border-t border-slate-800">
+          <div class="text-[9px] font-mono text-slate-400 mb-1">SENSOR SUITE STATUS:</div>
+          <div class="grid grid-cols-4 gap-1 text-[9px] font-mono text-center">
+            <div class="sensor-badge sensor-ok">CAM<br><span>90° FOV</span></div>
+            <div class="sensor-badge sensor-ok">RADAR<br><span>DOPPLER</span></div>
+            <div class="sensor-badge sensor-ok">LIDAR<br><span>180 RAYS</span></div>
+            <div class="sensor-badge sensor-ok">GNSS<br><span>EKF</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM BAR: CONTINUOUS LIVE TELEMETRY GRAPH & CALCULATION LOG -->
+    <div class="hud-panel absolute bottom-0 left-0 right-0 z-10 h-20 px-4 py-2 border-t border-cyan-500/20 bg-slate-950/90 backdrop-blur-md flex items-center justify-between gap-4">
+      <!-- Live Rolling Sparkline Graph -->
+      <div class="w-80 h-full flex flex-col justify-between border-r border-slate-800 pr-4">
+        <div class="flex justify-between text-[10px] font-mono text-slate-400">
+          <span>CONTINUOUS CALCULATION GRAPH</span>
+          <span class="text-cyan-400">SPEED (CYAN) / CLEARANCE (GREEN)</span>
+        </div>
+        <canvas id="sparklineCanvas" width="300" height="42" class="w-full h-11 bg-slate-900/60 rounded border border-slate-800"></canvas>
+      </div>
+
+      <!-- Real-Time Event Ticker Log -->
+      <div class="flex-1 h-full flex flex-col justify-between overflow-hidden">
+        <div class="flex items-center gap-2 text-[10px] font-mono text-slate-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+          <span>REAL-TIME AUTONOMOUS EVENT STREAM:</span>
+        </div>
+        <div id="eventTicker" class="font-mono text-xs text-slate-300 space-y-0.5 overflow-hidden h-11 flex flex-col justify-end">
+          <div class="text-emerald-400">[0.00s] 3D Simulation Engine initialized: Kinematic Bicycle Model + Frenet Lattice ready.</div>
+          <div class="text-cyan-300">[0.05s] Continuous roadway corridor extended. Ambient sensors active.</div>
+        </div>
+      </div>
+
+      <!-- Continuous Run Statistics -->
+      <div class="w-72 h-full border-l border-slate-800 pl-4 flex items-center justify-around font-mono text-center">
+        <div>
+          <div class="text-[9px] text-slate-500 uppercase">COLLISIONS</div>
+          <div id="collisionCountVal" class="text-base font-bold text-emerald-400">0</div>
+        </div>
+        <div>
+          <div class="text-[9px] text-slate-500 uppercase">NEAR MISSES</div>
+          <div id="nearMissCountVal" class="text-base font-bold text-cyan-300">0</div>
+        </div>
+        <div>
+          <div class="text-[9px] text-slate-500 uppercase">SIM TIME</div>
+          <div id="simTimeVal" class="text-base font-bold text-white">0.0s</div>
+        </div>
+        <div>
+          <div class="text-[9px] text-slate-500 uppercase">AVG SPEED</div>
+          <div id="avgSpeedVal" class="text-base font-bold text-emerald-400">0.0 km/h</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
